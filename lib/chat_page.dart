@@ -31,7 +31,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   };
 
 
-  
+
   late AnimationController _fadeController;
   late AnimationController _rotateController;
   late Animation<double> _fadeAnimation;
@@ -214,7 +214,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
     return prompt;
   }
 
-  
+
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
@@ -882,7 +882,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
           ),
         ),
         actions: [
-          
+
         ],
       ),
       body: Container(
@@ -1008,7 +1008,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
                                     ? const Center(
                                   child: SizedBox(
                                     width: 16,
-                                  height: 16,
+                                    height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
