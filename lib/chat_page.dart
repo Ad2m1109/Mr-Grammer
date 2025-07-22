@@ -28,12 +28,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   final Map<String, Map<String, String>> _languages = {
     'en-US': {'name': 'English', 'flag': '🇺🇸', 'code': 'en'},
-    'fr-FR': {'name': 'Français', 'flag': '🇫🇷', 'code': 'fr'},
-    'ar': {'name': 'العربية', 'flag': '🇹🇳', 'code': 'ar'},
-    'de-DE': {'name': 'Deutsch', 'flag': '🇩🇪', 'code': 'de'},
-    'es-ES': {'name': 'Español', 'flag': '🇪🇸', 'code': 'es'},
   };
 
+
+  
   late AnimationController _fadeController;
   late AnimationController _rotateController;
   late Animation<double> _fadeAnimation;
@@ -91,13 +89,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         _currentConversation = conversation;
         _messages.clear();
         _messages.addAll(conversation.messages);
-        _selectedLanguage = conversation.language;
-        _selectedLanguageName = _languages[conversation.language]?['name'] ?? 'English';
+        _selectedLanguage = 'en-US';
+        _selectedLanguageName = 'English';
       });
     }
-
-    // Test API key on startup (remove this after testing)
-    _testApiKey();
   }
 
   void _initializeTts() async {
@@ -142,24 +137,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Future<void> _configureTtsLanguage() async {
-    String ttsLanguage;
-    switch (_selectedLanguage) {
-      case 'fr-FR':
-        ttsLanguage = 'fr-FR';
-        break;
-      case 'ar':
-        ttsLanguage = 'ar-TN'; // Tunisian Arabic
-        break;
-      case 'de-DE':
-        ttsLanguage = 'de-DE';
-        break;
-      case 'es-ES':
-        ttsLanguage = 'es-ES';
-        break;
-      default:
-        ttsLanguage = 'en-US';
-    }
-
+    String ttsLanguage = 'en-US';
     try {
       await _flutterTts.setLanguage(ttsLanguage);
     } catch (e) {
@@ -199,245 +177,44 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // Test function - add this temporarily to test your API key
-  Future<void> _testApiKey() async {
-    try {
-      print('Testing API key...');
-      final response = await http.get(
-        Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$_geminiApiKey'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
-
-      print('API Key Test Response: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        print('✅ API Key is working!');
-      } else {
-        print('❌ API Key test failed: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ API Key test error: $e');
-    }
-  }
-
   String _getHintText() {
-    switch (_selectedLanguage) {
-      case 'fr-FR':
-        return _isLoading ? 'Veuillez patienter...' : 'Tapez votre message...';
-      case 'ar':
-        return _isLoading ? 'يرجى الانتظار...' : 'اكتب رسالتك...';
-      case 'de-DE':
-        return _isLoading ? 'Bitte warten...' : 'Nachricht eingeben...';
-      case 'es-ES':
-        return _isLoading ? 'Por favor espere...' : 'Escribe tu mensaje...';
-      default:
-        return _isLoading ? 'Please wait...' : 'Type your message...';
-    }
+    return _isLoading ? 'Please wait...' : 'Type your message...';
   }
 
-  String _getGrammarCorrectionText(String correctedText) {
-    switch (_selectedLanguage) {
-      case 'fr-FR':
-        return 'Correction grammaticale: $correctedText';
-      case 'ar':
-        return 'تصحيح نحوي: $correctedText';
-      case 'de-DE':
-        return 'Grammatikkorrektur: $correctedText';
-      case 'es-ES':
-        return 'Corrección gramatical: $correctedText';
-      default:
-        return 'Grammar correction: $correctedText';
-    }
-  }
+  String _getGrammarCorrectionText(List<Map<String, String>> corrections) {
+    if (corrections.isEmpty) return '';
 
-  String _getGrammarFixLabel() {
-    switch (_selectedLanguage) {
-      case 'fr-FR':
-        return 'Correction';
-      case 'ar':
-        return 'تصحيح';
-      case 'de-DE':
-        return 'Korrektur';
-      case 'es-ES':
-        return 'Corrección';
-      default:
-        return 'Grammar Fix';
+    String intro = 'I think you mean:';
+
+    List<String> correctionLines = [];
+    for (var correction in corrections) {
+      String type = correction['type']!;
+      String original = correction['original']!;
+      String corrected = correction['corrected']!;
+      correctionLines.add('- $type: "$original" -> "$corrected"');
     }
+
+    return '$intro\n' + correctionLines.join('\n');
   }
 
   String _getSpeakingText() {
-    switch (_selectedLanguage) {
-      case 'fr-FR':
-        return 'En cours de lecture...';
-      case 'ar':
-        return 'جاري القراءة...';
-      case 'de-DE':
-        return 'Wird vorgelesen...';
-      case 'es-ES':
-        return 'Leyendo...';
-      default:
-        return 'Speaking...';
-    }
+    return 'Speaking...';
   }
 
   String _getTypingText() {
-    switch (_selectedLanguage) {
-      case 'fr-FR':
-        return 'Mr. Grammar écrit...';
-      case 'ar':
-        return 'السيد جرامر يكتب...';
-      case 'de-DE':
-        return 'Mr. Grammar tippt...';
-      case 'es-ES':
-        return 'Mr. Grammar está escribiendo...';
-      default:
-        return 'Mr. Grammar is typing...';
-    }
+    return 'Mr. Grammar is typing...';
   }
 
-  void _showLanguageSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.6,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.indigo.shade800,
-              Colors.purple.shade600,
-            ],
-          ),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
-          ),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 15),
-            Container(
-              width: 35,
-              height: 3,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 15),
-            const Text(
-              'Select Language',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: _languages.entries.map((entry) {
-                  final isSelected = entry.key == _selectedLanguage;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white.withOpacity(0.2)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? Colors.white.withOpacity(0.4)
-                            : Colors.white.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () async {
-                          setState(() {
-                            _selectedLanguage = entry.key;
-                            _selectedLanguageName = entry.value['name']!;
-                          });
-                          _configureTtsLanguage(); // Update TTS language
+  String _getGeminiPrompt(String userText) {
+    String prompt = '''You are a friendly and encouraging language tutor named Mr. Grammar. Talk normally.
+The user sent this message: "$userText"
 
-                          // Update conversation language
-                          if (_currentConversation != null) {
-                            final updatedConversation = _currentConversation!.copyWith(
-                                language: entry.key
-                            );
-                            await ConversationService.saveConversation(updatedConversation);
-                            _currentConversation = updatedConversation;
-                          }
-
-                          Navigator.pop(context);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              Text(
-                                entry.value['flag']!,
-                                style: const TextStyle(fontSize: 22),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  entry.value['name']!,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                              if (isSelected)
-                                Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
+For each incorrect message (grammatically, logically, etc.), correct it and provide the type of the error. Do not correct capitalization problems.
+''';
+    return prompt;
   }
+
+  
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
@@ -481,7 +258,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
         if (mounted && grammarResult['hasErrors']) {
           final correctionMessage = {
-            'text': _getGrammarCorrectionText(grammarResult['correctedText']),
+            'text': _getGrammarCorrectionText(grammarResult['corrections']),
             'sender': 'bot',
             'isCorrection': true,
             'timestamp': DateTime.now().millisecondsSinceEpoch
@@ -500,7 +277,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
           // Automatically read grammar corrections aloud
           Future.delayed(const Duration(milliseconds: 300), () {
-            _speakMessage(_getGrammarCorrectionText(grammarResult['correctedText']), _messages.length - 1);
+            _speakMessage(_getGrammarCorrectionText(grammarResult['corrections']), _messages.length - 1);
           });
 
           // Get response for the corrected text
@@ -533,7 +310,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
         _scrollToBottom();
       }
-    } finally {
+    }
+    finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -543,6 +321,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Future<Map<String, dynamic>> _checkGrammar(String text, {int retries = 2}) async {
+    List<Map<String, String>> corrections = [];
+    String currentText = text;
+    int offsetAdjustment = 0;
+
     for (int i = 0; i <= retries; i++) {
       try {
         final response = await http.post(
@@ -560,35 +342,40 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           final data = jsonDecode(response.body);
           final matches = data['matches'] as List<dynamic>;
 
-          if (matches.isEmpty) {
-            return {'hasErrors': false, 'correctedText': text};
-          }
-
-          String correctedText = text;
-          int offsetAdjustment = 0;
-
           for (var match in matches) {
-            final offset = (match['offset'] as int) + offsetAdjustment;
+            final offset = (match['offset'] as int);
             final length = match['length'] as int;
             final replacements = match['replacements'] as List<dynamic>;
+            final ruleCategory = match['rule']['category']['name'] as String;
 
             if (replacements.isNotEmpty) {
               final replacement = replacements[0]['value'] as String;
+              final originalSnippet = text.substring(offset, offset + length);
 
-              if (offset >= 0 && offset + length <= correctedText.length) {
-                correctedText = correctedText.replaceRange(
-                    offset,
-                    offset + length,
-                    replacement
-                );
-                offsetAdjustment += replacement.length - length;
+              // Ignore corrections where only case has changed
+              if (originalSnippet.toLowerCase() == replacement.toLowerCase() &&
+                  originalSnippet != replacement) {
+                continue;
               }
+
+              corrections.add({
+                'original': originalSnippet,
+                'corrected': replacement,
+                'type': ruleCategory,
+              });
+
+              // Apply correction to currentText for subsequent offset calculations
+              currentText = currentText.replaceRange(
+                  offset + offsetAdjustment,
+                  offset + length + offsetAdjustment,
+                  replacement
+              );
+              offsetAdjustment += replacement.length - length;
             }
           }
 
-          return {'hasErrors': true, 'correctedText': correctedText};
+          return {'hasErrors': corrections.isNotEmpty, 'corrections': corrections, 'correctedText': currentText};
         } else if (response.statusCode == 429) {
-          // Rate limit exceeded, wait longer
           if (i < retries) {
             await Future.delayed(Duration(seconds: (i + 1) * 2));
             continue;
@@ -598,8 +385,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         throw Exception('LanguageTool API error: ${response.statusCode}');
       } catch (e) {
         if (i == retries) {
-          // Last retry failed, return original text
-          return {'hasErrors': false, 'correctedText': text, 'error': e.toString()};
+          return {'hasErrors': false, 'corrections': [], 'correctedText': text, 'error': e.toString()};
         }
 
         if (i < retries) {
@@ -608,7 +394,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       }
     }
 
-    return {'hasErrors': false, 'correctedText': text};
+    return {'hasErrors': false, 'corrections': [], 'correctedText': text};
   }
 
   Future<void> _getGeminiResponse(String text) async {
@@ -626,7 +412,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               {
                 'parts': [
                   {
-                    'text': 'You are a friendly chatbot named Mr. Grammar. The user sent this message: "$text". Respond conversationally and helpfully in ${_languages[_selectedLanguage]!['name']}. Keep your response concise but friendly. If the language is Arabic, respond in Arabic. If French, respond in French, etc.'
+                    'text': _getGeminiPrompt(text)
                   }
                 ]
               }
@@ -831,50 +617,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (isCorrection)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                  Icons.auto_fix_high,
-                                  size: 14,
-                                  color: Colors.white
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _getGrammarFixLabel(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            message['text']!,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16.0,
-                              height: 1.4,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
+                          child: _buildCorrectedText(message['text']!),
                         ),
                         const SizedBox(width: 8),
                         // Voice control button
@@ -939,6 +686,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCorrectedText(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 16.0,
+        height: 1.4,
+        fontWeight: FontWeight.w400,
+      ),
     );
   }
 
@@ -1093,10 +852,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(
-                    '$_selectedLanguageName Assistant',
+                  const Text(
+                    'English Assistant',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                     ),
@@ -1124,51 +882,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 12, top: 6, bottom: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: _showLanguageSelector,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _languages[_selectedLanguage]!['flag']!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _languages[_selectedLanguage]!['code']!.toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          
         ],
       ),
       body: Container(
@@ -1293,8 +1007,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                                 child: _isLoading
                                     ? const Center(
                                   child: SizedBox(
-                                    width: 20,
-                                    height: 20,
+                                    width: 16,
+                                  height: 16,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),

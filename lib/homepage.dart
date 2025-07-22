@@ -156,14 +156,6 @@ class _MyHomePageState extends State<MyHomePage>
                         child: _buildCTAButton(context),
                       ),
 
-                      const SizedBox(height: 30),
-
-                      // Footer info
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: _buildFooterInfo(),
-                      ),
-
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -401,6 +393,7 @@ class _MyHomePageState extends State<MyHomePage>
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 6),
             padding: const EdgeInsets.all(20),
+            height: 200.0, // Fixed height for uniform size
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
@@ -437,6 +430,7 @@ class _MyHomePageState extends State<MyHomePage>
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
+
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -543,52 +537,5 @@ class _MyHomePageState extends State<MyHomePage>
     );
   }
 
-  Widget _buildFooterInfo() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildStatCard("1M+", "Users"),
-            const SizedBox(width: 30),
-            _buildStatCard("4.9★", "Rating"),
-            const SizedBox(width: 30),
-            _buildStatCard("Free", "Forever"),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text(
-          "Join millions of learners improving their English",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 14,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
+  
 }

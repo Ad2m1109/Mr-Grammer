@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Conversation {
   final String id;
@@ -57,20 +58,37 @@ class Conversation {
 }
 
 class ConversationService {
-  // In-memory storage - data persists during app session only
-  static final Map<String, Conversation> _conversations = {};
+  static const String _conversationsKey = 'conversations';
+  static late SharedPreferences _prefs;
   static bool _initialized = false;
+  static final Map<String, Conversation> _conversations = {};
 
   static Future<void> _init() async {
     if (_initialized) return;
 
-    // You can add some default conversations here if needed
+    _prefs = await SharedPreferences.getInstance();
+    final String? conversationsJson = _prefs.getString(_conversationsKey);
+    if (conversationsJson != null) {
+      try {
+        final List<dynamic> jsonList = jsonDecode(conversationsJson);
+        for (var json in jsonList) {
+          _conversations[json['id']] = Conversation.fromJson(json);
+        }
+      } catch (e) {
+        print('Error loading conversations from SharedPreferences: $e');
+      }
+    }
     _initialized = true;
+  }
+
+  static Future<void> _saveAllConversations() async {
+    final List<Map<String, dynamic>> conversationsJsonList =
+        _conversations.values.map((c) => c.toJson()).toList();
+    await _prefs.setString(_conversationsKey, jsonEncode(conversationsJsonList));
   }
 
   static Future<List<Conversation>> getAllConversations() async {
     await _init();
-
     final conversations = _conversations.values.toList();
     conversations.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
     return conversations;
@@ -84,11 +102,13 @@ class ConversationService {
   static Future<void> saveConversation(Conversation conversation) async {
     await _init();
     _conversations[conversation.id] = conversation;
+    await _saveAllConversations();
   }
 
   static Future<void> deleteConversation(String id) async {
     await _init();
     _conversations.remove(id);
+    await _saveAllConversations();
   }
 
   static Future<Conversation> createNewConversation({
@@ -153,6 +173,7 @@ class ConversationService {
   static Future<void> clearAllConversations() async {
     await _init();
     _conversations.clear();
+    await _saveAllConversations();
   }
 
   static Future<int> getConversationCount() async {
@@ -176,6 +197,7 @@ class ConversationService {
       for (final conversation in conversations) {
         _conversations[conversation.id] = conversation;
       }
+      await _saveAllConversations();
     } catch (e) {
       print('Error importing conversations: $e');
     }
