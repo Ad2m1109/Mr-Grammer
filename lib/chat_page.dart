@@ -5,6 +5,9 @@ import 'dart:math' as math;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'conversation_service.dart';
 
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class ChatPage extends StatefulWidget {
   final String conversationId;
 
@@ -20,7 +23,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
 
   // Note: In production, store API keys securely
-  final String _geminiApiKey = 'AIzaSyDE273zP168oTYwfdj4Zhvp7BAlzeWlvtQ';
+  final String _geminiApiKey = 'sk-ai-v1-467115149374878f082361787d919f912f951ae4fe5042688a43f308c1e380c5';
 
   bool _isLoading = false;
   String _selectedLanguage = 'en-US';
@@ -96,6 +99,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   void _initializeTts() async {
+    if (kIsWeb || Platform.isLinux) return;
     _flutterTts = FlutterTts();
 
     // Set up TTS handlers
@@ -147,6 +151,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Future<void> _speakMessage(String text, int messageIndex) async {
+    if (kIsWeb || Platform.isLinux) return;
     if (_isSpeaking && _currentSpeakingIndex == messageIndex) {
       // Stop speaking if currently speaking this message
       await _flutterTts.stop();
@@ -173,7 +178,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     _rotateController.dispose();
     _controller.dispose();
     _scrollController.dispose();
-    _flutterTts.stop(); // Stop any ongoing speech
+    if (!kIsWeb && !Platform.isLinux) {
+      _flutterTts.stop(); // Stop any ongoing speech
+    }
     super.dispose();
   }
 
@@ -277,7 +284,9 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
 
           // Automatically read grammar corrections aloud
           Future.delayed(const Duration(milliseconds: 300), () {
-            _speakMessage(_getGrammarCorrectionText(grammarResult['corrections']), _messages.length - 1);
+            if (!kIsWeb && !Platform.isLinux) {
+              _speakMessage(_getGrammarCorrectionText(grammarResult['corrections']), _messages.length - 1);
+            }
           });
 
           // Get response for the corrected text
@@ -455,7 +464,9 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
 
               // Automatically read bot messages aloud
               Future.delayed(const Duration(milliseconds: 500), () {
-                _speakMessage(generatedText.trim(), _messages.length - 1);
+                if (!kIsWeb && !Platform.isLinux) {
+                  _speakMessage(generatedText.trim(), _messages.length - 1);
+                }
               });
             }
             return; // Success, exit the retry loop
@@ -495,7 +506,9 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
 
             // Read fallback message aloud
             Future.delayed(const Duration(milliseconds: 500), () {
-              _speakMessage('I understand your message! Unfortunately, I\'m having trouble connecting to my AI service right now. Please try again in a moment.', _messages.length - 1);
+              if (!kIsWeb && !Platform.isLinux) {
+                _speakMessage('I understand your message! Unfortunately, I\'m having trouble connecting to my AI service right now. Please try again in a moment.', _messages.length - 1);
+              }
             });
           }
           return;
