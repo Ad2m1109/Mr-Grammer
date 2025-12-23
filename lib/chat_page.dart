@@ -10,6 +10,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 final String _geminiApiKey = dotenv.env['GEMINI_API_KEY']!;
+final String _geminiApiUrl = dotenv.env['GEMINI_API_URL']!;
 
 class ChatPage extends StatefulWidget {
   final String conversationId;
@@ -229,30 +230,36 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
     final text = _controller.text.trim();
     if (text.isEmpty || _isLoading || _currentConversation == null) return;
 
-    // Create user message
-    final userMessage = {
-      'text': text,
-      'sender': 'user',
-      'timestamp': DateTime.now().millisecondsSinceEpoch
-    };
-
-    // Add user message immediately
+    // Immediately clear controller and set loading state
     setState(() {
-      _messages.add(userMessage);
       _isLoading = true;
       _controller.clear();
     });
 
-    // Save user message to conversation
+    // Perform grammar check
+    final grammarResult = await _checkGrammar(text);
+    final String errorType = grammarResult['errorType'];
+
+    // Create user message with error type
+    final userMessage = {
+      'text': text,
+      'sender': 'user',
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'errorType': errorType,
+    };
+
+    // Add user message to UI and save to conversation
+    setState(() {
+      _messages.add(userMessage);
+    });
     await ConversationService.addMessageToConversation(
         widget.conversationId,
         userMessage
     );
-
     _scrollToBottom();
 
     try {
-      // Update conversation title if it's the first message
+      // Update conversation title for the first message
       if (_messages.length == 1) {
         final newTitle = text.length > 30 ? '${text.substring(0, 30)}...' : text;
         await ConversationService.updateConversationTitle(
@@ -261,45 +268,69 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
         );
       }
 
-      // Only check grammar for messages longer than 3 words
-      if (text.split(' ').length > 3) {
-        final grammarResult = await _checkGrammar(text);
-
-        if (mounted && grammarResult['hasErrors']) {
-          final correctionMessage = {
-            'text': _getGrammarCorrectionText(grammarResult['corrections']),
+      // Handle different error types
+      switch (errorType) {
+        case 'correct':
+        case 'capitalization':
+          // Normal LLM response for correct or capitalization-only errors
+          await _getGeminiResponse(text);
+          break;
+        case 'syntax':
+          final problematicWord = grammarResult['corrections'].isNotEmpty
+              ? grammarResult['corrections'][0]['original']
+              : '';
+          final botResponseText = 'Are you sure this word is correct: "$problematicWord"?';
+          final botMessage = {
+            'text': botResponseText,
             'sender': 'bot',
             'isCorrection': true,
             'timestamp': DateTime.now().millisecondsSinceEpoch
           };
 
           setState(() {
-            _messages.add(correctionMessage);
+            _messages.add(botMessage);
           });
 
           await ConversationService.addMessageToConversation(
               widget.conversationId,
-              correctionMessage
+              botMessage
           );
-
           _scrollToBottom();
 
-          // Automatically read grammar corrections aloud
+          // Automatically read the correction aloud
           Future.delayed(const Duration(milliseconds: 300), () {
             if (!kIsWeb && !Platform.isLinux) {
-              _speakMessage(_getGrammarCorrectionText(grammarResult['corrections']), _messages.length - 1);
+              _speakMessage(botResponseText, _messages.length - 1);
             }
           });
+          break;
+        case 'logic':
+          final suggestion = grammarResult['correctedText'];
+          final botResponseText = 'OK, I understand you, but we usually say: "$suggestion"';
+          final botMessage = {
+            'text': botResponseText,
+            'sender': 'bot',
+            'isCorrection': true,
+            'timestamp': DateTime.now().millisecondsSinceEpoch
+          };
 
-          // Get response for the corrected text
-          await _getGeminiResponse(grammarResult['correctedText']);
-        } else {
-          // No grammar errors, get response for original text
-          await _getGeminiResponse(text);
-        }
-      } else {
-        // Short message, skip grammar check
-        await _getGeminiResponse(text);
+          setState(() {
+            _messages.add(botMessage);
+          });
+
+          await ConversationService.addMessageToConversation(
+              widget.conversationId,
+              botMessage
+          );
+          _scrollToBottom();
+
+          // Automatically read the correction aloud
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (!kIsWeb && !Platform.isLinux) {
+              _speakMessage(botResponseText, _messages.length - 1);
+            }
+          });
+          break;
       }
     } catch (e) {
       if (mounted) {
@@ -309,20 +340,16 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
           'isError': true,
           'timestamp': DateTime.now().millisecondsSinceEpoch
         };
-
         setState(() {
           _messages.add(errorMessage);
         });
-
         await ConversationService.addMessageToConversation(
             widget.conversationId,
             errorMessage
         );
-
         _scrollToBottom();
       }
-    }
-    finally {
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -335,6 +362,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
     List<Map<String, String>> corrections = [];
     String currentText = text;
     int offsetAdjustment = 0;
+    List<String> errorCategories = [];
 
     for (int i = 0; i <= retries; i++) {
       try {
@@ -354,28 +382,23 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
           final matches = data['matches'] as List<dynamic>;
 
           for (var match in matches) {
-            final offset = (match['offset'] as int);
-            final length = match['length'] as int;
-            final replacements = match['replacements'] as List<dynamic>;
-            final ruleCategory = match['rule']['category']['name'] as String;
+            final rule = match['rule'];
+            final ruleCategory = rule['category']['id'] as String;
+            errorCategories.add(ruleCategory);
 
+            final replacements = match['replacements'] as List<dynamic>;
             if (replacements.isNotEmpty) {
+              final offset = (match['offset'] as int);
+              final length = (match['length'] as int);
               final replacement = replacements[0]['value'] as String;
               final originalSnippet = text.substring(offset, offset + length);
-
-              // Ignore corrections where only case has changed
-              if (originalSnippet.toLowerCase() == replacement.toLowerCase() &&
-                  originalSnippet != replacement) {
-                continue;
-              }
 
               corrections.add({
                 'original': originalSnippet,
                 'corrected': replacement,
-                'type': ruleCategory,
+                'type': rule['category']['name'] as String,
               });
 
-              // Apply correction to currentText for subsequent offset calculations
               currentText = currentText.replaceRange(
                   offset + offsetAdjustment,
                   offset + length + offsetAdjustment,
@@ -385,7 +408,24 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
             }
           }
 
-          return {'hasErrors': corrections.isNotEmpty, 'corrections': corrections, 'correctedText': currentText};
+          // Determine error type based on categories
+          String errorType = 'correct';
+          if (errorCategories.isNotEmpty) {
+            if (errorCategories.any((c) => ['GRAMMAR', 'SPELLING', 'TYPOGRAPHY', 'COMPOUNDING', 'MISC'].contains(c))) {
+              errorType = 'syntax';
+            } else if (errorCategories.any((c) => c.contains('STYLE'))) {
+              errorType = 'logic';
+            } else if (errorCategories.any((c) => c == 'CASING')) {
+              errorType = 'capitalization';
+            }
+          }
+
+          return {
+            'hasErrors': corrections.isNotEmpty,
+            'corrections': corrections,
+            'correctedText': currentText,
+            'errorType': errorType,
+          };
         } else if (response.statusCode == 429) {
           if (i < retries) {
             await Future.delayed(Duration(seconds: (i + 1) * 2));
@@ -396,16 +436,14 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
         throw Exception('LanguageTool API error: ${response.statusCode}');
       } catch (e) {
         if (i == retries) {
-          return {'hasErrors': false, 'corrections': [], 'correctedText': text, 'error': e.toString()};
+          return {'hasErrors': false, 'corrections': [], 'correctedText': text, 'errorType': 'correct', 'error': e.toString()};
         }
-
         if (i < retries) {
           await Future.delayed(Duration(seconds: (i + 1)));
         }
       }
     }
-
-    return {'hasErrors': false, 'corrections': [], 'correctedText': text};
+    return {'hasErrors': false, 'corrections': [], 'correctedText': text, 'errorType': 'correct'};
   }
 
   Future<void> _getGeminiResponse(String text) async {
@@ -414,9 +452,10 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
     for (int i = 0; i <= maxRetries; i++) {
       try {
         final response = await http.post(
-          Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_geminiApiKey'),
+          Uri.parse(_geminiApiUrl),
           headers: {
             'Content-Type': 'application/json',
+            'X-goog-api-key': _geminiApiKey,
           },
           body: jsonEncode({
             'contents': [
@@ -496,7 +535,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
             };
 
             setState(() {
-              _messages.add(fallbackMessage);
+              _messages..add(fallbackMessage);
             });
 
             await ConversationService.addMessageToConversation(
@@ -573,6 +612,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
     final isError = message['isError'] == true;
     final isFallback = message['isFallback'] == true;
     final isSpeakingThisMessage = _isSpeaking && _currentSpeakingIndex == index;
+    final String errorType = message['errorType'] ?? '';
 
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 500),
@@ -592,7 +632,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 14.0),
                 decoration: BoxDecoration(
-                  gradient: _getMessageGradient(isUser, isCorrection, isError, isFallback),
+                  gradient: _getMessageGradient(isUser, isCorrection, isError, isFallback, errorType),
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(20),
                     topRight: const Radius.circular(20),
@@ -638,6 +678,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
                         ),
                         const SizedBox(width: 8),
                         // Voice control button
+                        if (!isUser)
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.2),
@@ -714,16 +755,38 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
     );
   }
 
-  LinearGradient _getMessageGradient(bool isUser, bool isCorrection, bool isError, bool isFallback) {
+  LinearGradient _getMessageGradient(bool isUser, bool isCorrection, bool isError, bool isFallback, String errorType) {
     if (isUser) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.blue.shade400,
-          Colors.indigo.shade500,
-        ],
-      );
+      switch (errorType) {
+        case 'correct':
+          return LinearGradient(
+            colors: [Colors.green.shade400, Colors.green.shade600],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+        case 'capitalization':
+          return LinearGradient(
+            colors: [Colors.orange.shade400, Colors.deepOrange.shade600],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+        case 'syntax':
+        case 'logic':
+          return LinearGradient(
+            colors: [Colors.red.shade400, Colors.red.shade700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+        default:
+          return LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.blue.shade400,
+              Colors.indigo.shade500,
+            ],
+          );
+      }
     } else if (isCorrection) {
       return LinearGradient(
         begin: Alignment.topLeft,
