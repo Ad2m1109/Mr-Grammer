@@ -9,6 +9,8 @@ import 'conversation_service.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+final String _geminiApiKey = dotenv.env['GEMINI_API_KEY']!;
+
 class ChatPage extends StatefulWidget {
   final String conversationId;
 
@@ -24,10 +26,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
 
   // Note: In production, store API keys securely
-  final String _geminiApiKey = dotenv.env['GEMINI_API_KEY']!
   bool _isLoading = false;
   String _selectedLanguage = 'en-US';
   String _selectedLanguageName = 'English';
+
 
   final Map<String, Map<String, String>> _languages = {
     'en-US': {'name': 'English', 'flag': '🇺🇸', 'code': 'en'},
