@@ -18,7 +18,7 @@ A live demonstration of the project is available on the web.
 
 **(Note: This is an ideal spot to embed a GIF of your application in action. A short screen recording showing the chat interface, a grammar correction, and the AI's response would be highly effective.)**
 
-| ![Homepage](assets/convimg.png) | ![Chat Interface](assets/homepagephoto.jpg) |
+| ![Homepage](assets/convimg.png) | ![Chat Interface](assets/chat.png) |
 | :-----------------------------: | :---------------------------------------: |
 |         *Homepage*         |             *Chat Interface*              |
 
