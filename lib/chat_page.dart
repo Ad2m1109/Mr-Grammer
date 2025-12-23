@@ -1,3 +1,4 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -23,8 +24,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
 
   // Note: In production, store API keys securely
-  final String _geminiApiKey = 'sk-ai-v1-467115149374878f082361787d919f912f951ae4fe5042688a43f308c1e380c5';
-
+  final String _geminiApiKey = dotenv.env['GEMINI_API_KEY']!
   bool _isLoading = false;
   String _selectedLanguage = 'en-US';
   String _selectedLanguageName = 'English';
@@ -506,9 +506,7 @@ For each incorrect message (grammatically, logically, etc.), correct it and prov
 
             // Read fallback message aloud
             Future.delayed(const Duration(milliseconds: 500), () {
-              if (!kIsWeb && !Platform.isLinux) {
-                _speakMessage('I understand your message! Unfortunately, I\'m having trouble connecting to my AI service right now. Please try again in a moment.', _messages.length - 1);
-              }
+              _speakMessage('I understand your message! Unfortunately, I\'m having trouble connecting to my AI service right now. Please try again in a moment.', _messages.length - 1);
             });
           }
           return;
