@@ -30,11 +30,19 @@ To run this project locally:
     git clone https://github.com/Ad2m1109/Mr-Grammer.git
     cd Mr-Grammer
     ```
-2.  **Install Flutter dependencies:**
+2.  **Set up environment variables:**
+    Create a `.env` file in the root of the project and add the following lines:
+    ```
+    GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+    GEMINI_API_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    ```
+    Replace `"YOUR_GEMINI_API_KEY"` with your actual Gemini API key.
+
+3.  **Install Flutter dependencies:**
     ```bash
     flutter pub get
     ```
-3.  **Run the application:**
+4.  **Run the application:**
     ```bash
     flutter run
     ```
